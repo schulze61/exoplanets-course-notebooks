@@ -1,5 +1,5 @@
 """
-nb_toc.py Jupyter notebook TOC utilities.
+nb_toc.py — Jupyter notebook TOC utilities.
 
 Usage
 -----
@@ -19,6 +19,22 @@ back_to_toc()
 """
 
 from IPython.display import HTML
+
+# One script block injected once that uses event delegation.
+# Attached to document, so it handles all buttons regardless of when they appear.
+_DELEGATION_SCRIPT = """\
+<script>
+(function() {
+  if (window._jptocListenerAttached) { return; }
+  window._jptocListenerAttached = true;
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.jptoc-btn, .jptoc-back');
+    if (!btn) { return; }
+    var el = document.getElementById(btn.getAttribute('data-target'));
+    if (el) { el.scrollIntoView({behavior: 'smooth'}); }
+  });
+})();
+</script>"""
 
 
 def _heading_id(text: str) -> str:
@@ -57,13 +73,13 @@ def toc(
     JupyterLab derives the element id as: spaces -> hyphens, case preserved.
     """
     items_html = "\n".join(
-        f'<li>'
+        f'    <li>'
         f'<button class="jptoc-btn" data-target="{_heading_id(s)}" '
         f'style="background:none;border:none;padding:0;color:#0066cc;'
         f'cursor:pointer;font-size:1em;text-align:left;">'
-        f'{s}'
+        f'{i}. {s}'
         f'</button></li>'
-        for s in sections
+        for i, s in enumerate(sections, 1)
     )
 
     html = f"""\
@@ -74,16 +90,7 @@ def toc(
 {items_html}
   </ol>
 </div>
-<script>
-(function() {{
-  document.querySelectorAll('.jptoc-btn').forEach(function(btn) {{
-    btn.addEventListener('click', function() {{
-      var el = document.getElementById(this.getAttribute('data-target'));
-      el.scrollIntoView({{behavior: 'instant'}}); 
-    }});
-  }});
-}})();
-</script>"""
+{_DELEGATION_SCRIPT}"""
 
     return HTML(html)
 
@@ -104,21 +111,11 @@ def back_to_toc(toc_heading: str = "Table of Contents") -> HTML:
         Display by calling back_to_toc() as the last expression in a code cell.
     """
     target = _heading_id(toc_heading)
-    print(target)
 
     html = f"""\
 <button class="jptoc-back" data-target="{target}"
   style="background:none;border:none;padding:0;color:#555;
          cursor:pointer;font-size:0.9em;">&#8593; Back to TOC</button>
-<script>
-(function() {{
-  document.querySelectorAll('.jptoc-back').forEach(function(btn) {{
-    btn.addEventListener('click', function() {{
-      var el = document.getElementById(this.getAttribute('data-target'));
-      if (el) {{ el.scrollIntoView({{behavior: 'smooth'}}); }}
-    }});
-  }});
-}})();
-</script>"""
+{_DELEGATION_SCRIPT}"""
 
     return HTML(html)
