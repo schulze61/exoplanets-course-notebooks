@@ -1,0 +1,11 @@
+{
+  "name": "My Codespace",
+  "image": "mcr.microsoft.com/devcontainers/universal:2",
+  "features": {},
+  "postCreateCommand": "",
+  "customizations": {
+    "vscode": {
+      "extensions": []
+    }
+  }
+}
