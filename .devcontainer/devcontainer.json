@@ -1,13 +1,7 @@
 {
   "name": "My Codespace",
   "image": "mcr.microsoft.com/devcontainers/python:3.11",
-  "features": {
-    "ghcr.io/devcontainers/features/python:1": {
-      "version": "latest",
-      "installJupyterlab": true
-    }
-  },
-  "postCreateCommand": "pip install numpy matplotlib pandas scipy spyder jupyterlab",
+  "postCreateCommand": "pip install jupyterlab numpy matplotlib pandas scipy spyder",
   "customizations": {
     "vscode": {
       "extensions": [
