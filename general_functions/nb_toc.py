@@ -27,19 +27,30 @@ from IPython.display import Javascript, HTML, display
 def setup():
     """
     Run this once in its own cell before calling toc() or back_to_toc().
-    Registers the click handler via IPython.display.Javascript, which always
-    executes regardless of notebook trust state.
+    Scopes all heading searches to the notebook panel that contains this cell.
     """
     display(Javascript("""
 (function() {
-  if (window._jptocReady) { return; }
-  window._jptocReady = true;
+  // Find the notebook panel that contains this script's output cell
+  var scripts = document.querySelectorAll('script');
+  var thisScript = scripts[scripts.length - 1];
+  var notebookPanel = thisScript ? thisScript.closest('.jp-NotebookPanel') : null;
+
+  if (!notebookPanel) {
+    console.warn('nb_toc: could not find parent notebook panel');
+    return;
+  }
+
+  // Store the handler remover so we can replace it on re-run
+  if (notebookPanel._jptocCleanup) {
+    notebookPanel._jptocCleanup();
+  }
 
   function findHeading(headingText) {
     var headingId = headingText.replace(/ /g, '-');
-    var el = document.getElementById(headingId);
+    var el = notebookPanel.getElementById ? notebookPanel.getElementById(headingId) : null;
     if (el) { return el; }
-    var headings = document.querySelectorAll('h1,h2,h3,h4,h5,h6');
+    var headings = notebookPanel.querySelectorAll('h1,h2,h3,h4,h5,h6');
     for (var i = 0; i < headings.length; i++) {
       if (headings[i].textContent.replace(/\u00b6/g, '').trim() === headingText) {
         return headings[i];
@@ -56,27 +67,23 @@ def setup():
       return;
     }
 
-    var outer = document.querySelector('.jp-WindowedPanel-outer');
-    var inner = document.querySelector('.jp-WindowedPanel-inner');
+    var outer = notebookPanel.querySelector('.jp-WindowedPanel-outer');
+    var inner = notebookPanel.querySelector('.jp-WindowedPanel-inner');
     if (!outer || !inner) { return; }
 
-    var step          = outer.clientHeight * 0.8;
-    var direction     = 1;
-    var passesLeft    = 3;
-    var pos           = outer.scrollTop;
+    var step           = outer.clientHeight * 0.8;
+    var direction      = 1;
+    var passesLeft     = 3;
+    var pos            = outer.scrollTop;
     var savedScrollTop = outer.scrollTop;
 
-    // Hide the outer panel visually during the sweep, but keep it
-    // scrollable so the windowed renderer still responds to scrollTop changes.
     outer.style.visibility = 'hidden';
 
     function restore(targetEl) {
-      // Restore visibility, then jump to the found heading
       outer.style.visibility = '';
       if (targetEl) {
         targetEl.scrollIntoView();
       } else {
-        // Nothing found — at least put the user back where they were
         outer.scrollTop = savedScrollTop;
       }
     }
@@ -119,11 +126,20 @@ def setup():
     setTimeout(sweep, 150);
   }
 
-  document.addEventListener('click', function(e) {
+  function clickHandler(e) {
     var btn = e.target.closest('.jptoc-btn, .jptoc-back');
     if (!btn) { return; }
+    // Only handle clicks within this notebook panel
+    if (!notebookPanel.contains(btn)) { return; }
     scrollToHeading(btn.getAttribute('data-heading'));
-  });
+  }
+
+  document.addEventListener('click', clickHandler);
+
+  // Store cleanup function so re-running setup() removes the old handler
+  notebookPanel._jptocCleanup = function() {
+    document.removeEventListener('click', clickHandler);
+  };
 })();
 """))
 
