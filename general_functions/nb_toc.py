@@ -22,107 +22,137 @@ back_to_toc()
 """
 
 from IPython.display import Javascript, HTML, display
+import os
+import ipykernel
 
 
 def setup():
     """
     Run this once in its own cell before calling toc() or back_to_toc().
-    Registers the click handler via IPython.display.Javascript, which always
-    executes regardless of notebook trust state.
+    Scopes all heading searches to the notebook panel matching this kernel.
     """
-    display(Javascript("""
-(function() {
-  if (window._jptocReady) { return; }
-  window._jptocReady = true;
+    info = ipykernel.get_connection_info()
+    session = info.get('jupyter_session', '')
+    notebook_name = os.path.basename(session).replace('.ipynb', '')
 
-  function findHeading(headingText) {
-    var headingId = headingText.replace(/ /g, '-');
-    var el = document.getElementById(headingId);
-    if (el) { return el; }
-    var headings = document.querySelectorAll('h1,h2,h3,h4,h5,h6');
-    for (var i = 0; i < headings.length; i++) {
-      if (headings[i].textContent.replace(/\u00b6/g, '').trim() === headingText) {
+    display(Javascript(f"""
+(function() {{
+  var notebookName = {repr(notebook_name)};
+
+  function findPanel() {{
+    var panels = document.querySelectorAll('.jp-NotebookPanel');
+    for (var i = 0; i < panels.length; i++) {{
+      if (panels[i].innerHTML.indexOf(notebookName) !== -1) {{
+        return panels[i];
+      }}
+    }}
+    // Fallback: active panel
+    var active = document.querySelector('.jp-NotebookPanel.jp-mod-current, .jp-NotebookPanel.lm-mod-current');
+    if (active) {{ return active; }}
+    return panels[panels.length - 1];
+  }}
+
+  var notebookPanel = findPanel();
+
+  if (!notebookPanel) {{
+    console.warn('nb_toc: could not find parent notebook panel');
+    return;
+  }}
+
+  console.log('nb_toc: attached to panel', notebookPanel.id, 'for notebook', notebookName);
+
+  if (notebookPanel._jptocCleanup) {{
+    notebookPanel._jptocCleanup();
+  }}
+
+  function findHeading(headingText) {{
+    var headings = notebookPanel.querySelectorAll('h1,h2,h3,h4,h5,h6');
+    for (var i = 0; i < headings.length; i++) {{
+      if (headings[i].textContent.replace(/\u00b6/g, '').trim() === headingText) {{
         return headings[i];
-      }
-    }
+      }}
+    }}
     return null;
-  }
+  }}
 
-  function scrollToHeading(headingText) {
-    // Fast path: already in DOM, jump instantly
+  function scrollToHeading(headingText) {{
     var el = findHeading(headingText);
-    if (el) {
+    if (el) {{
       el.scrollIntoView();
       return;
-    }
+    }}
 
-    var outer = document.querySelector('.jp-WindowedPanel-outer');
-    var inner = document.querySelector('.jp-WindowedPanel-inner');
-    if (!outer || !inner) { return; }
+    var outer = notebookPanel.querySelector('.jp-WindowedPanel-outer');
+    var inner = notebookPanel.querySelector('.jp-WindowedPanel-inner');
+    if (!outer || !inner) {{ return; }}
 
-    var totalHeight   = inner.offsetHeight;
-    var viewHeight    = outer.clientHeight;
-    var maxScroll     = totalHeight - viewHeight;
-    var step          = viewHeight * 0.8;
-    var direction     = 1;
-    var passesLeft    = 3;
-    var pos           = outer.scrollTop;
+    var step           = outer.clientHeight * 0.8;
+    var direction      = 1;
+    var passesLeft     = 3;
+    var pos            = outer.scrollTop;
     var savedScrollTop = outer.scrollTop;
 
-    // Hide the outer panel visually during the sweep, but keep it
-    // scrollable so the windowed renderer still responds to scrollTop changes.
     outer.style.visibility = 'hidden';
 
-    function restore(targetEl) {
-      // Restore visibility, then jump to the found heading
+    function restore(targetEl) {{
       outer.style.visibility = '';
-      if (targetEl) {
+      if (targetEl) {{
         targetEl.scrollIntoView();
-      } else {
-        // Nothing found — at least put the user back where they were
+      }} else {{
         outer.scrollTop = savedScrollTop;
-      }
-    }
+      }}
+    }}
 
-    function sweep() {
+    function sweep() {{
       var el = findHeading(headingText);
-      if (el) {
+      if (el) {{
         restore(el);
         return;
-      }
+      }}
+
+      var totalHeight = inner.offsetHeight;
+      var viewHeight  = outer.clientHeight;
+      var maxScroll   = totalHeight - viewHeight;
 
       pos += step * direction;
 
-      if (pos >= maxScroll) {
+      if (pos >= maxScroll) {{
         pos = maxScroll;
         direction = -1;
         passesLeft--;
-      }
+      }}
 
-      if (pos <= 0) {
+      if (pos <= 0) {{
         pos = 0;
         direction = 1;
         passesLeft--;
-      }
+      }}
 
-      if (passesLeft <= 0) {
+      if (passesLeft <= 0) {{
         restore(null);
         return;
-      }
+      }}
 
       outer.scrollTop = pos;
       setTimeout(sweep, 150);
-    }
+    }}
 
     setTimeout(sweep, 150);
-  }
+  }}
 
-  document.addEventListener('click', function(e) {
+  function clickHandler(e) {{
     var btn = e.target.closest('.jptoc-btn, .jptoc-back');
-    if (!btn) { return; }
+    if (!btn) {{ return; }}
+    if (!notebookPanel.contains(btn)) {{ return; }}
     scrollToHeading(btn.getAttribute('data-heading'));
-  });
-})();
+  }}
+
+  document.addEventListener('click', clickHandler);
+
+  notebookPanel._jptocCleanup = function() {{
+    document.removeEventListener('click', clickHandler);
+  }};
+}})();
 """))
 
 
@@ -150,7 +180,7 @@ def toc(
         f'<button class="jptoc-btn" data-heading="{s}" '
         f'style="background:none;border:none;padding:0;color:#0066cc;'
         f'cursor:pointer;font-size:1em;text-align:left;">'
-        f'{i}. {s}'
+        f'{s}'
         f'</button></li>'
         for i, s in enumerate(sections, 1)
     )
