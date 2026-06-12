@@ -150,7 +150,7 @@ def toc(
         f'<button class="jptoc-btn" data-heading="{s}" '
         f'style="background:none;border:none;padding:0;color:#0066cc;'
         f'cursor:pointer;font-size:1em;text-align:left;">'
-        f'{i}. {s}'
+        f'{s}'
         f'</button></li>'
         for i, s in enumerate(sections, 1)
     )
