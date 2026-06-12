@@ -1,6 +1,4 @@
-This repo is a work in progress.
-
-Add some words on how folks can collaborate via gitHub if they have modules they think would be nice to add or they have ideas for additions to the existing notebooks.
+This repo is a work in progress. Target audience is upper level undergradutes and graduate students interested in (exo)planetary science. 
 
 # Suggested course outline:
 1. Python crash course
@@ -10,5 +8,9 @@ Add some words on how folks can collaborate via gitHub if they have modules they
    - Radial velocity method
    - Other detection techniques (currently includes astrometry and direct imaging)
 4. Exoplanet demographics
-5. 
+5. Building a planet
+6. Atmospheres
+
+
+Let's collaborate! Add some words on how folks can collaborate via gitHub if they have modules they think would be nice to add or they have ideas for additions to the existing notebooks. Something something I'm biased towards small planet interiors. There are definitely people who can discuss some of these topics way better.
    
