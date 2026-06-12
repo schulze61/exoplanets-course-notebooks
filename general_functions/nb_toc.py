@@ -60,10 +60,7 @@ def setup():
     var inner = document.querySelector('.jp-WindowedPanel-inner');
     if (!outer || !inner) { return; }
 
-    var totalHeight   = inner.offsetHeight;
-    var viewHeight    = outer.clientHeight;
-    var maxScroll     = totalHeight - viewHeight;
-    var step          = viewHeight * 0.8;
+    var step          = outer.clientHeight * 0.8;
     var direction     = 1;
     var passesLeft    = 3;
     var pos           = outer.scrollTop;
@@ -90,6 +87,11 @@ def setup():
         restore(el);
         return;
       }
+
+      // Recalculate dynamically each step as cells render
+      var totalHeight = inner.offsetHeight;
+      var viewHeight  = outer.clientHeight;
+      var maxScroll   = totalHeight - viewHeight;
 
       pos += step * direction;
 
