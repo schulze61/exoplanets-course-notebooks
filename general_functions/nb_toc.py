@@ -22,54 +22,71 @@ back_to_toc()
 """
 
 from IPython.display import Javascript, HTML, display
+import os
 
 
 def setup():
     """
     Run this once in its own cell before calling toc() or back_to_toc().
-    Scopes all heading searches to the notebook panel that contains this cell.
+    Scopes all heading searches to the notebook panel matching this kernel.
     """
-    display(Javascript("""
-(function() {
-  // Find the notebook panel that contains this script's output cell
-  var scripts = document.querySelectorAll('script');
-  var thisScript = scripts[scripts.length - 1];
-  var notebookPanel = thisScript ? thisScript.closest('.jp-NotebookPanel') : null;
+    # Pass the kernel ID from Python to JS to find the correct panel
+    kernel_id = os.environ.get('JPY_SESSION_NAME', '')
+    display(Javascript(f"""
+(function() {{
+  var kernelId = {repr(kernel_id)};
 
-  if (!notebookPanel) {
+  // Find the notebook panel whose widget ID or data attribute matches this kernel
+  function findPanel() {{
+    var panels = document.querySelectorAll('.jp-NotebookPanel');
+    // Try to match by kernel ID in the panel's session context
+    for (var i = 0; i < panels.length; i++) {{
+      var p = panels[i];
+      if (p.innerHTML.indexOf(kernelId) !== -1) {{
+        return p;
+      }}
+    }}
+    // Fallback: return the currently focused/active panel
+    var active = document.querySelector('.jp-NotebookPanel.jp-mod-current, .jp-NotebookPanel.lm-mod-current');
+    if (active) {{ return active; }}
+    // Last resort: return last panel
+    return panels[panels.length - 1];
+  }}
+
+  var notebookPanel = findPanel();
+
+  if (!notebookPanel) {{
     console.warn('nb_toc: could not find parent notebook panel');
     return;
-  }
+  }}
 
-  // Store the handler remover so we can replace it on re-run
-  if (notebookPanel._jptocCleanup) {
+  console.log('nb_toc: attached to panel', notebookPanel.id);
+
+  // Remove old handler if re-running setup()
+  if (notebookPanel._jptocCleanup) {{
     notebookPanel._jptocCleanup();
-  }
+  }}
 
-  function findHeading(headingText) {
-    var headingId = headingText.replace(/ /g, '-');
-    var el = notebookPanel.getElementById ? notebookPanel.getElementById(headingId) : null;
-    if (el) { return el; }
+  function findHeading(headingText) {{
     var headings = notebookPanel.querySelectorAll('h1,h2,h3,h4,h5,h6');
-    for (var i = 0; i < headings.length; i++) {
-      if (headings[i].textContent.replace(/\u00b6/g, '').trim() === headingText) {
+    for (var i = 0; i < headings.length; i++) {{
+      if (headings[i].textContent.replace(/\u00b6/g, '').trim() === headingText) {{
         return headings[i];
-      }
-    }
+      }}
+    }}
     return null;
-  }
+  }}
 
-  function scrollToHeading(headingText) {
-    // Fast path: already in DOM, jump instantly
+  function scrollToHeading(headingText) {{
     var el = findHeading(headingText);
-    if (el) {
+    if (el) {{
       el.scrollIntoView();
       return;
-    }
+    }}
 
     var outer = notebookPanel.querySelector('.jp-WindowedPanel-outer');
     var inner = notebookPanel.querySelector('.jp-WindowedPanel-inner');
-    if (!outer || !inner) { return; }
+    if (!outer || !inner) {{ return; }}
 
     var step           = outer.clientHeight * 0.8;
     var direction      = 1;
@@ -79,68 +96,65 @@ def setup():
 
     outer.style.visibility = 'hidden';
 
-    function restore(targetEl) {
+    function restore(targetEl) {{
       outer.style.visibility = '';
-      if (targetEl) {
+      if (targetEl) {{
         targetEl.scrollIntoView();
-      } else {
+      }} else {{
         outer.scrollTop = savedScrollTop;
-      }
-    }
+      }}
+    }}
 
-    function sweep() {
+    function sweep() {{
       var el = findHeading(headingText);
-      if (el) {
+      if (el) {{
         restore(el);
         return;
-      }
+      }}
 
-      // Recalculate dynamically each step as cells render
       var totalHeight = inner.offsetHeight;
       var viewHeight  = outer.clientHeight;
       var maxScroll   = totalHeight - viewHeight;
 
       pos += step * direction;
 
-      if (pos >= maxScroll) {
+      if (pos >= maxScroll) {{
         pos = maxScroll;
         direction = -1;
         passesLeft--;
-      }
+      }}
 
-      if (pos <= 0) {
+      if (pos <= 0) {{
         pos = 0;
         direction = 1;
         passesLeft--;
-      }
+      }}
 
-      if (passesLeft <= 0) {
+      if (passesLeft <= 0) {{
         restore(null);
         return;
-      }
+      }}
 
       outer.scrollTop = pos;
       setTimeout(sweep, 150);
-    }
+    }}
 
     setTimeout(sweep, 150);
-  }
+  }}
 
-  function clickHandler(e) {
+  function clickHandler(e) {{
     var btn = e.target.closest('.jptoc-btn, .jptoc-back');
-    if (!btn) { return; }
-    // Only handle clicks within this notebook panel
-    if (!notebookPanel.contains(btn)) { return; }
+    if (!btn) {{ return; }}
+    if (!notebookPanel.contains(btn)) {{ return; }}
     scrollToHeading(btn.getAttribute('data-heading'));
-  }
+  }}
 
   document.addEventListener('click', clickHandler);
 
-  // Store cleanup function so re-running setup() removes the old handler
-  notebookPanel._jptocCleanup = function() {
+  notebookPanel._jptocCleanup = function() {{
     document.removeEventListener('click', clickHandler);
-  };
-})();
+  }};
+}})();
 """))
 
 
@@ -148,21 +162,6 @@ def toc(
     sections: list[str],
     title: str = "Table of Contents",
 ) -> HTML:
-    """
-    Render a clickable Table of Contents.
-
-    Parameters
-    ----------
-    sections : list of str
-        Heading text for each section, exactly as written in the ## cells.
-    title : str
-        Display title shown above the TOC list.
-
-    Returns
-    -------
-    IPython.display.HTML
-        Call as the last expression in a code cell to display.
-    """
     items_html = "\n".join(
         f'    <li>'
         f'<button class="jptoc-btn" data-heading="{s}" '
@@ -184,20 +183,6 @@ def toc(
 
 
 def back_to_toc(toc_heading: str = "Table of Contents") -> HTML:
-    """
-    Render an upward arrow button that scrolls back to the TOC heading.
-
-    Parameters
-    ----------
-    toc_heading : str
-        The heading text of the TOC cell. Must match the ## heading exactly.
-        Defaults to "Table of Contents".
-
-    Returns
-    -------
-    IPython.display.HTML
-        Call as the last expression in a code cell to display.
-    """
     return HTML(
         f'<button class="jptoc-back" data-heading="{toc_heading}" '
         f'style="background:none;border:none;padding:0;color:#555;'
