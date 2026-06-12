@@ -23,6 +23,7 @@ back_to_toc()
 
 from IPython.display import Javascript, HTML, display
 import os
+import ipykernel
 
 
 def setup():
@@ -30,8 +31,9 @@ def setup():
     Run this once in its own cell before calling toc() or back_to_toc().
     Scopes all heading searches to the notebook panel matching this kernel.
     """
-    session_name = os.environ.get('JPY_SESSION_NAME', '')
-    notebook_name = os.path.basename(session_name).replace('.ipynb', '')
+    info = ipykernel.get_connection_info()
+    session = info.get('jupyter_session', '')
+    notebook_name = os.path.basename(session).replace('.ipynb', '')
 
     display(Javascript(f"""
 (function() {{
