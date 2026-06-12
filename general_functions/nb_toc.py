@@ -30,26 +30,23 @@ def setup():
     Run this once in its own cell before calling toc() or back_to_toc().
     Scopes all heading searches to the notebook panel matching this kernel.
     """
-    # Pass the kernel ID from Python to JS to find the correct panel
-    kernel_id = os.environ.get('JPY_SESSION_NAME', '')
+    session_name = os.environ.get('JPY_SESSION_NAME', '')
+    notebook_name = os.path.basename(session_name).replace('.ipynb', '')
+
     display(Javascript(f"""
 (function() {{
-  var kernelId = {repr(kernel_id)};
+  var notebookName = {repr(notebook_name)};
 
-  // Find the notebook panel whose widget ID or data attribute matches this kernel
   function findPanel() {{
     var panels = document.querySelectorAll('.jp-NotebookPanel');
-    // Try to match by kernel ID in the panel's session context
     for (var i = 0; i < panels.length; i++) {{
-      var p = panels[i];
-      if (p.innerHTML.indexOf(kernelId) !== -1) {{
-        return p;
+      if (panels[i].innerHTML.indexOf(notebookName) !== -1) {{
+        return panels[i];
       }}
     }}
-    // Fallback: return the currently focused/active panel
+    // Fallback: active panel
     var active = document.querySelector('.jp-NotebookPanel.jp-mod-current, .jp-NotebookPanel.lm-mod-current');
     if (active) {{ return active; }}
-    // Last resort: return last panel
     return panels[panels.length - 1];
   }}
 
@@ -60,9 +57,8 @@ def setup():
     return;
   }}
 
-  console.log('nb_toc: attached to panel', notebookPanel.id);
+  console.log('nb_toc: attached to panel', notebookPanel.id, 'for notebook', notebookName);
 
-  // Remove old handler if re-running setup()
   if (notebookPanel._jptocCleanup) {{
     notebookPanel._jptocCleanup();
   }}
@@ -162,6 +158,21 @@ def toc(
     sections: list[str],
     title: str = "Table of Contents",
 ) -> HTML:
+    """
+    Render a clickable Table of Contents.
+
+    Parameters
+    ----------
+    sections : list of str
+        Heading text for each section, exactly as written in the ## cells.
+    title : str
+        Display title shown above the TOC list.
+
+    Returns
+    -------
+    IPython.display.HTML
+        Call as the last expression in a code cell to display.
+    """
     items_html = "\n".join(
         f'    <li>'
         f'<button class="jptoc-btn" data-heading="{s}" '
@@ -183,6 +194,20 @@ def toc(
 
 
 def back_to_toc(toc_heading: str = "Table of Contents") -> HTML:
+    """
+    Render an upward arrow button that scrolls back to the TOC heading.
+
+    Parameters
+    ----------
+    toc_heading : str
+        The heading text of the TOC cell. Must match the ## heading exactly.
+        Defaults to "Table of Contents".
+
+    Returns
+    -------
+    IPython.display.HTML
+        Call as the last expression in a code cell to display.
+    """
     return HTML(
         f'<button class="jptoc-back" data-heading="{toc_heading}" '
         f'style="background:none;border:none;padding:0;color:#555;'
